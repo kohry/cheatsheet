@@ -1,0 +1,358 @@
+---
+title: "data2-3"
+output: html_document
+---
+
+# 회귀분석
+
+수치형데이터만 가지고 회귀분석을 했는데, 이제는 그룹변수들이 올때가 있다.
+남/녀 이런거 되게 중요함. 
+여자는 항상 두배가 적용이 됨 1,2 라고 하면
+변동량만 추가하는 기법이 필요함. 
+
+1인경우 따로뽑아 회귀식, 2인경우 따롭뽑아 할수도 있는데, 한식에다가 다 되게끔 구조를 만들어야함.
+
+보통 레벨의 수만큼. 지금은 남녀. 아이리스는 세개임. 변수형태로 변화를 줌. 더미변수. 
+더미변수를 몇개를 만들어야 하나. iris데이터인 경우 세개. 
+1,2,3 그룹있다고 치면, 레벨의 수 세개 중 하나 빼서 .. k-1 개를 만들게 됨. 
+
+1인경우는 00
+2인경우는 10
+3인경우는 01
+이런식으로 들어가게끔.
+
+그럼 y = a + bx +...이런게 bd + bd 뭐 이렇게 됨
+R은 자동적으로 바꿔줌. 이렇게 하는 순간 회귀식을 세그룹의 성격을 다 포함하게 할수있음.
+등비에 대한 개념이 있는 데이터가 아니니 그룹이 바뀔때마다 변동량만큼.
+
+
+# iris데이터 한번 보기
+
+```{r}
+str(iris)
+model_c <- lm(Sepal.Length~., data=iris)
+summary(model_c)
+
+```
+
+더미변수가 생긴걸 알수있다. 첫번째거는 0,0가 들어가는거임. 나머지 위에 식을 가지고 가는 setosa경우임.
+
+<group 1인경우>
+SL = 2.17 + 0.49 * SW + 0.82 * PL - 0.31 * PW - 0.72 * D1 -1.02 * D2
+
+<group 2인경우>
+SL = 2.17 - 0.72 + 0.49 * SW + 0.82 * PL - 0.31 * PW 
+
+<group 3인경우>
+SL = 2.17 - 1.02 + 0.49 * SW + 0.82 * PL - 0.31 * PW
+
+predict도 원래값 그대로 넣어주면됨.
+
+상수를 더해주고 빼주는 식으로 작동하게 됨.
+
+논문보면 잘못되어있는거 짱마늠. 2배 3배 이렇게 처리해놓음. 이런건 병신임.
+
+
+0,1이런건 상관이 없는데 1,2는 문제가 있다.
+
+# 어떻게 거시기.
+
+첫번째는 최소제곱법 알파베타 편미분으로 찾는방법
+두번째는 원래값과 추정값 차이 제곱 해서 숫자 나올 평균을 냄. 루트를 싀워서 RMSE 이게 0에 근접할때까지
+
+단위가 다른 경우가 발생함. y에 영향을 미치는게 다름. 성향들을 명확하게 보여줄려고 단위들을 표준화시킴. 우리는 0~1사이로 떨어뜨리든지 -4~4로 떨어뜨리든지, 뭐 이렇게 함. 표준화 혹은 정규화시킨다고 함. 0~1 민맥스 방식. 
+
+```{r}
+data <- read.csv("energy.csv", header = T, stringsAsFactors = T, sep=",")
+str(data)
+```
+
+주석을 뛰어넘게 skip옵션도 있음.
+sapply()
+tapply()
+apply(데이터셋, 방향(행/열), 사용할 함수)
+
+```{r}
+apply(iris[,1:4], 2, mean)
+```
+
+열별로 평균을 구하게 됨. 각각 하나하나 하려고 하면 apply()
+
+## sapply
+simple apply인데, 순서가 반대임. 데이터셋이 먼저 들어가고 FUN들어감. 
+결측치인지 아닌지, 결대로 하나씩 따라다니려면 sapply()가 적당할수 있다.
+
+```{r}
+sapply(iris[,1:4], mean)
+```
+
+```{r}
+f <- function(x){
+  ifelse(is.na(x), mean(x, na.rm = T), x)  
+}
+data2 <- sapply(data[,-1], f)
+head(data2)
+
+data3 <- cbind(data[,1], data2)
+head(data3)
+
+```
+
+sapply는 벡터에 뭔가를 넣는거임
+
+# LOF 찾는거
+
+```{r}
+#both support lof
+library(DMwR)
+library(Rlof)
+```
+
+```{r}
+df.lof <- lof(data3[,-1], k=5)
+filtered_data <- data3[df.lof < 2, ]
+summary(filtered_data)
+nrow(data3)
+nrow(filtered_data)
+```
+
+주변하고 얼마나 떨어져있는지 계산하는 함수임. 맨하탄 거리를 이용한다.
+유클리디안은 제곱이기 때문에 엄청 커지는데, 맨하탄은 절대값만을 이용하니까 뭐 저렇게 됨.
+
+```{r}
+head(data3[df.lof > 2, ])
+```
+
+```{r}
+str(filtered_data)
+fd <- as.data.frame(filtered_data)
+colnames(fd)[1] <- "Heating_Level"
+str(fd)
+mmm <- aov(Heating_Load ~ Heating_Level , data = fd)
+summary(mmm)
+TukeyHSD(mmm, 'Heating_Level')
+
+```
+
+```{r}
+mmmm <- step(lm(Heating_Load ~. -Heating_Level, data = fd), direction = "both")
+summary(mmmm)
+```
+
+그럼 최종 모델은 
+Heating_Load = 93.05 - 67.423 ... + 93.. 이 된다.
+
+
+# 로지스틱 회귀
+
+단순로짓분석 glm(표현식, family="binomial")
+0~1 사이의 값이 떨어지도록 하는걸로.
+
+```{r}
+str(iris)
+iris1 <- iris[1:100, ]
+iris1$Species <- factor(iris1$Species)
+table(iris1$Species)
+
+binom_model <- glm(Species ~. , data = iris1, family = "binomial")
+binom_model
+
+```
+
+```{r}
+predict(binom_model, newdata = iris1)
+```
+
+확률로 보이도록 바꿔야함. 
+
+```{r}
+pred1 <- predict(binom_model, newdata = iris1, type = "response" )
+```
+
+```{r}
+pred2 <- ifelse(pred1 >= 0.5, 2, 1)
+table(iris1$Species, pred2)
+```
+
+훈련데이터를 다시 넣었으니 당연히 잘나오는게 당연하다. 이제 세개로 한번 나누어본다. 
+다중로짓으로 가버려엇
+
+# 다중 로짓이라면? 라벨이 세개이상이라면??
+
+A다 아니다 찾아내는 분류기, B다 아니다 찾아내는 분류기, C다 아니다 찾아내는 분류기 다 돌리는 기법이 됨.
+A분류기에 의해서 제대로 분류해낼 확률. 맞는확률 vs 아닌확률 이렇게 나오게 됨. 
+각각 좌우의 합이 1일 확률
+   o  x
+A  
+B
+C
+
+제일 레이블이 높은걸로 하면 되지 않을까? 이값들의 합을 구해서 상대비로 바꿔주는 베이즈공식이 이원리에 의해 만들었다고 함.
+소프트맥스라고 함. 각각의 값들을 합이 1이 되게끔 함.
+A분류기, B분류기, C분류기에 대해 각각 분류될확률 합해서 1 SOFTMAX!
+다중 로지스틱 회귀 
+
+```{r}
+library(nnet)
+
+set.seed(200)
+
+n1 <- nrow(iris)
+ind1 <- sample(1:n1, n1 * 0.7, replace = F)
+ind1
+```
+
+```{r}
+train <- iris[ind1,]
+test <- iris[-ind1,]
+
+mmodel <- multinom(Species ~ ., data = train)
+mpredict <- predict(mmodel, newdata = test, type='probs')
+mpredict
+
+
+```
+
+다중로지스틱 회귀는 이렇게 합이 1이 나오게 한다. 리턴값들이 복수개로 돌려주게끔한다.
+
+```{r}
+apply(mpredict, 1, sum)
+```
+
+모두가 합이 1이나오게 된다. 소프트맥스
+
+```{r}
+mpredict <- predict(mmodel, newdata = test)
+table(test$Species, mpredict)
+```
+
+이 기법들을 똑같이 뭔가 할수 있음. 베이즈 공식을 넣은게 나이브 베이즈. 
+디시전을 복수개를 넣은걸 랜덤포레스트.
+각각 한개의 기준에서 복수개를 하는 걸 거시기함.
+
+# 로지스틱 회귀 연습
+
+```{r}
+raw <- read.csv("bank.csv", header = T)
+raw2 <- na.omit(raw)
+str(raw2)
+```
+
+```{r}
+gmodel <- glm(y~., data = raw2, family = "binomial")
+nn <- nrow(raw2)
+set.seed(1234)
+ii <- sample(1:nn, nn * 0.7)
+
+trainn <- raw2[ii,]
+testn <- raw2[-ii,]
+
+m10 <- glm(y~., data = trainn, family = 'binomial')
+pred10 <- predict(m10, newdata=testn, type="response")
+
+result <- ifelse(pred10 >= 0.5, 'yes', 'no')
+
+pt1 <- table(testn$y, result)
+pt1
+
+sum(diag(pt1))/sum(pt1) # accuracy
+
+prop.table(pt1, 1) # row based
+prop.table(pt1, 2) # column based
+prop.table(pt1)
+
+
+
+```
+
+실제 성능좋은 분류기법들이 많다.로지스틱 잘 안쓴다고 한다고 한다..
+crosstable 이용이 가능하다. accuarcy 가 튀어나옴.
+
+```{r}
+aa <- CrossTable(testn$y, result)
+sum(diag(aa$prop.tbl))
+```
+
+성능차이때문에 다른 알고리즘으로 한번 돌려보겠다,
+
+```{r}
+confusionMatrix(testn$y, result) #e1071 package
+```
+
+# 성능을 한번 높여보자!
+
+랜덤포레스트 SVM을 써보자.
+
+```{r}
+mrf <- randomForest(y ~ . , data = trainn)
+mrf
+```
+메모리가 없으면 에러뜬다.
+
+```{r}
+mrf2 <- randomForest(y ~ . , data = trainn, ntree=30)
+mrf2
+```
+
+
+
+```{r}
+predd <- predict(mrf2, newdata=testn)
+confusionMatrix(testn$y, predd)
+```
+
+## svm
+
+```{r}
+mrf3 <- svm(y ~ . , data = trainn)
+mrf3
+
+predd <- predict(mrf3, newdata=testn)
+confusionMatrix(testn$y, predd)
+```
+행의 갯수가 많으면 많을수록 열이 생김 졸라 오래걸림.
+
+svm도 tuned이라는 함수를 통해서, 튜닝하면 됨.
+
+
+# text
+텍스트를 다룰때는 보통 tm을 다루고, konlp를 다룸.
+tm은 영어 전문임. 
+tm은 문장을 넣어주면 matrix로 바꿔주는 함수가 있음.
+두개 패키지 조합해서 쓰면 된다는거. 패키지마다 장점이 있어서 장점을 최대로 활용.
+단어마다 변수가 됨. 문장이 들어오게 됨. 문장이 행이 되게 됨. 준비한 단어먼저 검출을 해서 매트릭스를 만드는거임.
+단어가 숫자가 많이 남. 확률로 바꿔주면 될것인지, 제로로 들어갈것인지. 시스템의 고장있을때 이런 현상이있더라 뭐 이러함.
+KONLP는 자바씀.
+
+Restart한번 하면 이제 돌아가게 됨.
+
+```{r}
+library(KoNLP)
+extractNoun('야 이 나쁜놈아 항가항가 꺌꺌꺌꺌')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

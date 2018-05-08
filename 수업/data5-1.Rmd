@@ -1,0 +1,502 @@
+```{r}
+library(dplyr)
+```
+
+
+
+```{r}
+inequality <- read.csv("Frank_All_v97.csv")
+tax <- read.csv("STC_Historical_DB.csv")
+state <- read.csv("State_FIPS.csv")
+
+tax <- tax %>% select(Year, Name, Total.Taxes, Total.Income.Taxes) %>% filter(Year >= 1960 & Year <= 2012)
+inequality <- inequality %>% filter(year > 1960 & year <= 2012)
+
+
+```
+
+```{r}
+state
+tax
+inequality
+
+t <- tax %>% left_join(state, by = c("Name" = "st_abb")) %>% left_join(inequality, by = c("Year" = "year", "st_name" = "state"))
+t
+
+```
+
+
+```{r}
+library(reshape2)
+rda <- read.csv("RatesDeaths_AllIndicators.csv", skip = 6)
+rda <- tbl_df(rda)
+rda2 <- rda %>% filter(Uncertainty.bounds. == "Median")
+rda2
+rda_long <- melt(rda2, id.var=c("CountryName", "year"), measure.vars = -c(1:4), variable.name = "type", value.name = "value")
+summary(rda_long)
+```
+
+```{r}
+rda_long %>% filter(year %in% c(1990, 1995, 2000, 2005, 2015), type %in% c("Under.five.Deaths.", "Infant.Deaths.","Neonatal.Deaths.")) %>% group_by( year, type ) %>% summarise(total = sum(value))
+```
+
+# ggplot 그리기~
+
+베이스 : 데이터형식이 바뀌면, 데이터조작을 많이 해야함. 선하나 추가, 레이어 쌓기 이런거 너무 번거로움
+base를 개선한 패키지는 ggplot2 이후 천하통일. 자료속에 숨어있는 인튜이션 찾으려고 하는거임. ggplot2 는 특히나 데이터의 탐색에 적절한 패키지임.
+
+ggplot은 일관된 타입을 받아서 좋음. data, geometric object, mapping 요 세개는 특히나 중요함.
+GEOM은 기하객체라고 표현함. 100명의 사람들이 있는데 이름, 성별, 키, 몸무게, 가 있다고 한다. 
+aes는 에스떼틱이라고 미적요소임. color라는 미적요소에 성별을 매핑을 시킴. 에스떼틱을 매핑한다. 이렇게 얘기를 함. 
+분석하기 직전가려면 하나의 변수가 하나의 종류만 가져야함. 변수대 변수로 모델링을 해야함. 롱과 와이드는 기준에 따라 다르다.
+한개변수는 동일한 메저로 측정된거. smooth라는 기하객체도 에스떼틱이 필요함.
+
+동시에 객체가 오는 경우, 백 한개짜리인지 백개짜리인지, 그러면 아이덴티티가 아니라 gitter로 변경한다면 약간의 노이즈를 더하면서 백개의 점이 거시기됨.
+
+stat도 아이덴티티다. 높이 등등 결정해주는게 이런거임.
+
+
+```{r}
+library(ggplot2)
+ggplot() + layer(data=mpg, geom="point", mapping = aes(x=hwy, y=displ, color=factor(cyl)), position = "identity", stat = "identity")
+
+
+```
+
+layer 는 데이터 지옴 매핑, (포지션, 스탯) 
+layer는 별로 잘 안씀.
+
+```{r}
+ggplot() + geom_point(data = mpg, mapping = aes(x=hwy, y=displ, color=factor(cycle), size=factor(cycle)))
+```
+
+a faceting specification -> 국소시각화? 
+뭐 클래스별로 스플릿을 함. 산점도를. 국소시각화를 하면 하나의 산점도에서 보이는걸 쪼갠다.
+ggplot은 원래 스케일이 같음. 
+
+a coordinate system. 좌표축자체를 여기저기 바꾸는거 직교좌표계를 극좌표로 바꾸는거
+
+a set of scales. 
+자료로부터 해당 aes 로 매핑하는게 스케일임. 로그 x로 바꾸겠다, 스퀘어로 바꾸겠다 이런게 스케일 함수로 다 조정함.
+x라는 에스떼딕의 스케일을 조절함.
+
+인위적으로 바꾸ㅡ고 싶으면 컬러 변형 뭐 이런거 해야함.
+
+```{r}
+ggplot() + geom_point(data=mpg, mapping = aes(x=hwy, y=displ, color = factor(cycle), size = factor(cycle))) + facet_wrap()
+```
+
+guides - 축이나 범례하는거.
+
+coordination facet 이런거 두개만 좀 많이 다룬다. 나머지는 별로 안씀.
+
+default stack and default position을 줄이려면 geon하면됨.
+
+geom_point, geom_smooth 이런식으로 뒤에 붙음.
+
+커널밀도함수, 자료의 분포를 파악하기 쉬운함수 그려볼수도 있다. 
+그리고 바차트, x축이 카테고리다.
+
+geon - violin 차트, geonm _dotplot.
+
+여러자료에 많은 정보 넣으루 있는.
+
+테두리 컬러 내부면 필임.
+
+괄호에 써야하는거 기초통계?
+
+
+
+# Aesthetic Mapping
+
+geom함수 중 일부는 group옵션활용가능.
+
+```{r}
+ggplot(mpg, aes(hwy, cty)) +
+ geom_point(aes(color = cyl)) +
+ geom_smooth(method ="lm") +
+ coord_cartesian() +
+ scale_color_gradient() +
+ theme_bw()
+```
+
+ggplot함수에 데이터와 매핑까지 쓸수있음.
+
+클래스 6개이상안찍힐때 scale을 만져야함.
+
+
+```{r}
+
+ggplot(iris) + geom_point(aes(Sepal.Length, Sepal.Width), size = 3, color = "coral", shape = 19) + geom_smooth(aes(Sepal.Length, Sepal.Width),method = "lm", fill = "red", color = "black")
+```
+
+16,20, 19
+?pch
+
+pch : point character, cex : charater expantion.
+
+
+loess 국소회귀, 폭을 결정을 해서 polynomial을 매번 하는거. 그래서 스무딩이 나옴. 디폴트는 loess
+
+
+```{r}
+ggplot(diamonds) + geom_smooth(aes(carat, price, color = cut))
+```
+
+ggplot(data, mapping)
+geom_ 의경우는 mapping이 먼저나옴. ()
+자료가 많이 없는부분은 자료가 많이 없는곳이고, 나머지애들은 데이터가 음청많음.
+
+group옵션으로 넣어놀수 있는데, color로 하면 알아서 쪼개진다.
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) + geom_smooth(mapping = aes(linetype = drv)) + geom_point(aes(color=class))
+```
+
+drv에 따라서 linetype을 매핑시켰기 때문에, 세개의 서로다른 선으로 구분이 되었음.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + geom_point(aes(color=class)) + geom_smooth(data = filter(mpg, class == "subcompact"))
+```
+
+```{r}
+raw <- read.csv("labeled.csv")
+str(raw)
+ggplot(data = raw) + geom_point(aes(c_eye_left_size, c_eye_right_size, color=gender))
+```
+
+
+```{r}
+df <- data.frame(y=1:3, z = c("a","b","c"))
+ggplot(df, aes(y,y)) + geom_point(size = 6, color = "grey20", show.legend = TRUE) +
+  geom_point(aes(color = z), size = 2)
+```
+
+```{r}
+ggplot(data= diamonds) + geom_bar(mapping = aes(x = cut))
+```
+
+색깔이 서로 다른 막대그림 그리기.
+
+```{r}
+ggplot(data= diamonds) + geom_bar(mapping = aes(x = cut, fill = cut))
+```
+
+identity는 원점에서 시작되는것임. vvs1이 빈도가 거시기한거임. 전부 원점에서 시작함.
+
+```{r}
+ggplot(diamonds) + geom_bar(mapping = aes(x = cut, fill = clarity), position = "identity")
+```
+
+원래는 디폴트로 위로쌓기를 지원함.
+
+```{r}
+ggplot(diamonds) + geom_bar(mapping = aes(x = cut, fill = clarity), position = "fill")
+```
+
+다 채워지게 됨.
+
+```{r}
+ggplot(data = mpg) + geom_point(mapping = aes(x = displ, y = hwy), position = "jitter")
+```
+
+노이즈 집어넣기. 데이터 탐색만을 위해 만들어놨음!
+
+```{r}
+demo <- data.frame(a = c("bar_1","bar_2","bar_3"), b = c(20, 30, 40))
+ggplot(data = demo) + geom_bar(mapping = aes(a,b), stat = "identity")
+```
+
+```{r}
+ggplot(data = diamonds) + geom_bar(mapping = aes(x = cut), width = 1)
+```
+
+..prop.. 내부 테이블에 있는 변수를 의미함. 
+
+```{r}
+ggplot(diamonds) + geom_count(mapping = aes(x = cut, y = clarity))
+
+```
+
+
+```{r}
+ggplot(diamonds) + geom_count(mapping = aes(x = cut, y = clarity, size = ..prop.., group = clarity))
+```
+상대빈도도 측정한다? 매핑을 추가 시킨다면, 상대빈도를 계산할때 빈도가 따로다로 계산이 된다능.
+빈도를 디스플레이를 하려면 상대빈도라면, ..prop..이라능.
+..이 보이면, 해당 geom을 그리기 위해 stat함수, stat함수는 내부의 뭔가를 만들어냄.
+행별로 비중합이 1인가.
+
+stat으로 하고 geom을 기본값으로 쓰면 .. 됨.
+
+
+
+# scale
+
+scale_x_log10
+scale_x_contious
+scale_color
+
+뭐 이런것들이 있다. 
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) + geom_point(aes(color = class)) + scale_x_continuous() + scale_y_continuous() + scale_color_brewer()
+```
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) + geom_point(aes(color = class)) + scale_y_log10() + scale_y_log10() + scale_color_brewer()
+```
+
+scale은 수정임. 
+
+축이나 범례는 비슷하다. 축에서 이름이니 라벨. 
+
+name 축 범례
+breaks 눈금, 범례
+label 눈금라벨, 눈금라벨이 있다
+
+v의 범위가 0부터 거시기. v라는게 알파에 매핑을 시킴. v가 가지는 값중 어디까지만 거시기? limit?
+
+범위를 벗어난 애들만 빨강이렇게. 
+
+```{r}
+df <- data.frame(x = 1:2, y = 1, z = "a")
+p <- ggplot(df, aes(x, y)) + geom_point(aes(color = z))
+p + scale_x_continuous(name = "X axis")
+p + xlab("X axis") + ylab("Y axis")
+p + labs( x = "XX", y = "yy", color = "color")
+
+```
+
+limit을 걸면, 데이터 그냥 안보이는거 처리할수있다. 
+
+```{r}
+df <- data.frame(x = 1:5)
+p <- ggplot(df, aes(x, 1)) + geom_tile(aes(fill = x), color = "white")
+p + scale_fill_continuous(limits = c(2,4))
+p + scale_fill_continuous(limits = c(2,4), oob = scales::squish)
+```
+
+NA자료는 그레이로 처리되게 되어있다.
+oob out of bound
+
+```{r}
+ggplot(data = mtcars, aes(x = mpg, y = cyl, alpha = cyl)) + geom_point(aes(color = wt, size = factor(gear))) +
+  scale_alpha_continuous(range = c(0.2, 0.8), name = "CYL", breaks = c(4,6,8), labels = c("f","s","e"))
+```
+
+```{r}
+ggplot(data = mtcars, aes(x = mpg, y = cyl, alpha = cyl)) + geom_point(aes(color = wt, size = factor(gear))) +
+  scale_alpha_continuous(range = c(0.2, 0.8), name = "CYL", breaks = c(4,6,8), labels = c("f","s","e")) +
+  scale_size_discrete(range = c(1,10), name = "GEAR") +
+  scale_color_continuous(low = "red", high = "yellow", name = "WT", limits = c(3,5))
+```
+
+
+toolbox는 총 네가지로 구성되어있고, default보다 color scale을 많이 씀. 나머지는 뭐 그다지 ..
+
+tranform 이용하면 그냥 눈금이 원래 눈금으로 보여준다고 한다.
+reciprocal <- 역수임. 
+
+```{r}
+q <- ggplot(mpg, aes(displ, hwy)) + geom_point()
+q
+```
+
+```{r}
+ggplot(diamonds, aes(price, carat)) + geom_bin2d() + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10")
+```
+
+log로 해줘야 좀 할만함. 뒤로갈수록 자료는 없지만 긴 범위에서 그려져야할 그래프인데, 이제는 상당히 많은 자료들이 검출된다 로그로 되어있다.
+
+# color 는 중요하다!
+
+컬러 기본도 좋은데, 우리가 원하는 색으로 바꾸는게 경우에 따라서 좋다. 
+
+color, fill 같은거임. (선, 면적)
+
+```{r}
+erupt <- ggplot(faithfuld, aes(waiting, eruptions, fill = density)) + geom_tile()
+erupt
+```
+
+디폴트는 파란색이고, 한계통으로 그림. 
+
+gradient 에 low 와 high를 넣어주면됨.
+
+
+```{r}
+erupt + scale_fill_gradient(low = "white", high = "black")
+```
+
+```{r}
+erupt + scale_fill_gradient2(midpoint = quantile(faithfuld$density, prob = 0.9), low = "red", high = "blue", mid = "white")
+```
+
+0.9에 화이트가 오도록 하는거임. 그걸 확률로 준거고.
+
+```{r}
+erupt + scale_fill_gradientn(colors = terrain.colors(7))
+```
+
+팔레트 함수를 씀. 7개의 색깔을 쓰는걸 확인가능함
+
+```{r}
+erupt + scale_fill_gradientn(colors = rainbow(5))
+```
+
+무지개색깔로 예쁘게 나오는것을 확인가능하다.
+
+```{r}
+plot(1:5, 1:5, col = rainbow(5), pch = 20)
+```
+
+```{r}
+df <- data.frame(x = 1, y = 1:5, z = c(1, 3, 2, NA, 5))
+p <- ggplot(df, aes(x, y)) + geom_tile(aes(fill = z)) + scale_fill_gradient(na.value = "red")
+p
+```
+
+빨간색으로 표현되는 데이터가 NA데이터이다. 
+
+```{r}
+df <- data.frame(x = c("a", "b", "c", "d"), y = c(3,4,1,2))
+
+
+```
+
+
+# discrete함수
+scale_color_brewer(), scale_color_grey()
+
+```{r}
+RColorBrewer::display.brewer.all()
+```
+
+이렇게 사용가능한 색깔을 확인할수 있다.
+
+```{r}
+demo
+bars <- ggplot(df, aes(x, y, fill = x)) + geom_bar(stat = "identity") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
+bars
+```
+
+theme 에 none을 넣으면 legend를 뺄수있다.
+
+```{r}
+bars + scale_fill_brewer(palette = "Accent")
+```
+
+흑백은 grey써주면 됨.
+
+
+```{r}
+bars + scale_fill_grey()
+```
+ 
+```{r}
+df <- data.frame(x = c(2,3,1,4), y = 1:4)
+Colors <- c("red","orange","yellow","pink")
+Sizes <- c(5,7,9,11)
+ggplot(data = df, aes(x,y, color = Colors, size = Sizes)) +geom_point()
+
+
+```
+
+```{r}
+ggplot(data = mtcars, aes( x = mpg, y =  wt, color = factor(cyl), size = factor(cyl))) + geom_point()
+```
+
+manual, 은 discrete변수 범주에 대해서만 직접 하는거임. 종종 쓰게 됨. 
+
+coord_flip() <- 축변환
+coord_polar() <- 극좌표계로 바꿈.
+
+```{r}
+ggplot(diamonds) + geom_bar(mapping = aes(x = cut, fill = cut), width = 1) + coord_polar()
+```
+
+x -> 쎄타, 
+y -> 반지름
+
+폭스.
+좋은그림은 아니다. 실제 빈도보다 훨씬 과장되게 보이는 역할임. 자극적인 그래프를 그릴때.
+
+극좌표로 바꾼드아! 
+
+```{r}
+ggplot(diamonds) + geom_bar(mapping = aes(x = factor(1), fill = cut), width = 1) + coord_polar(theta = "y")
+```
+
+이런걸 그려야 하는데
+
+바차트를 하나 그려놓고 극좌표계로 그릴수있다. r base에서는 piechart()하면 되는데 거기에 비해서는 좀 어렵다. 
+반지름은 같다. 막대를 쪼갠다음에 극조표로 만들어야행. 안해!
+
+# fauceting
+
+탐색할때 정말 좋다긔
+rbase랑은 비교도 안됨. 분할기준이 되는 변수를 정의를 해줘야하는데 분할기준은 범주형이여야함.
+discrete type을 넣어야 함.
+
+# facet_wrap
+물결다음 원하는 변수를 넣으면 facet_wrap(~ v1) v1이 가지는 범주에 따라 그래프를 쪼갠다. 방금그린 그림을 v1의 레벨에 따라 쪼갬.
+옆으로 쭈욱 나란히 펼친다. 
+모든 x와 y의 축들의 스케일을 다 맞춘다. 그래서 뭐가 몰려있는지 편하게 볼수있음. scales라는 옵션이 있는데 fixed가 default임
+free_x, free_y 이렇게 좀 자유롭게 가능함. 
+
+# facet_grid
+행과 열변수를 따로 지정하는거임. facet_grid(v1~v2) v1는 a,b v2는 a b c 여섯개의 산점도 매트릭스가 튀어나옴. 
+```{r}
+ggplot(mtcars) + geom_point(mapping = aes(mpg, wt)) + facet_wrap( ~ cyl)
+```
+
+
+```{r}
+ggplot(raw) + geom_point(mapping = aes(c_eye_left_size, c_eye_right_size)) + facet_wrap(~ gender)
+```
+
+
+```{r}
+ggplot(mtcars) + geom_point(aes(mpg, wt)) + facet_wrap(~ cyl, scales = "free")
+```
+
+고정되어있지 않아 후리후리 하다. 점들이 그냥 다 퍼져있다.
+
+
+```{r}
+ggplot(mtcars) + geom_point(aes(mpg, wt)) + facet_grid(gear ~ cyl, scales = "free_y")
+```
+
+y만 후리후리함.
+
+# 연습문제 3-1
+
+```{r}
+ggplot(mpg) + geom_point(aes(displ, hwy, color = class))
+```
+
+```{r}
+d2 <- diamonds %>% mutate(volumn = x * y * z)
+
+ggplot(data = filter(d2, volumn <= quantile(volumn, prob = 0.99)), aes(volumn, price)) + geom_point(aes(color = clarity), position = "jitter") + scale_y_log10() + scale_color_brewer(palette = "PuOr")
+
+
+```
+
+
+```{r}
+load("student2012.rda")
+student2012 <- tbl_df(student2012)
+```
+
+
+
+
+
+
+
+
+
+
+

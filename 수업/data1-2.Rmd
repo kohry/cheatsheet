@@ -1,0 +1,256 @@
+---
+title: "data1-2"
+output: html_document
+---
+
+# 데이터 첫번째날 오후수업 (1-2)
+
+```{r}
+t.test(airquality$Wind, mu = 15)
+```
+
+mu가 여기서는 결과들이 나온다. 
+95퍼센트 신뢰구간. 뮤는 저 안에 들어가있어야 한다. 뮤가 현재 신뢰구간에 들어가있지 않다.
+따라서 귀무가설을 기각한다.
+
+하한과 상한을 Z단위로 보고, 범위에 들어가는 확률이 0.95이상이 되도록 해야함.
+
+t외에도 dqrp 붙을 수 있음. 
+
+```{r}
+rchisq()
+dchisq()
+```
+
+d <- 높이
+p <- 누적면적
+q <- 좌표값을 알게끔
+r <- 난수발생기
+
+```{r}
+nrow(airquality)
+qt(0.05, 152)
+mean(airquality$Wind)
+xbar = mean(airquality$Wind)
+xbar + qt(0.05, 152)
+var(airquality$Wind)
+sd1 <- sd(airquality$Wind)
+
+n1 <- sqrt(nrow(airquality))
+l1 <- xbar + qt(0.025, 152) * (sd1 / n1)
+u1 <- xbar + qt(0.975, 152) * (sd1 / n1)
+c(l1, u1)
+
+l2 <- 15 + qt(0.025, 152) * (sd1/n1)
+u2 <- 15 + qt(0.975, 152) * (sd1/n1)
+c(l2, u2)
+
+(xbar < l2) | (xbar > u2) #귀무가설을 기각하게됨. TRUE가 떨어지기 때문에. 양측검정임.
+
+tt1 = (xbar - 15) / (sd1 / n1)
+tt1 < qt(0.025, 152)
+```
+
+간소한 형태는 p-value임.
+
+```{r}
+t.test(airquality$Wind, mu = 15, alternative = "greater", conf.level = 0.9)
+```
+
+양쪽 한쪽검정 옵션으로 줄수있음.
+또한 confidence level 이 0.9면 0.1을 유의수준으로 보겠다는거임.
+
+```{r}
+t.test(iris$Sepal.Length, mu = 8, alternative = "less", conf.level = 0.9 )
+```
+```{r}
+tr1 <- iris[iris$Species == "setosa", ]
+tr1
+```
+
+#dplyr
+
+이거 데이터 shaping 아주조암
+
+```{r}
+iris %>% group_by(Species) %>% summarise(m1 = mean(Sepal.Length))
+```
+
+
+
+
+# Sleep데이터로 표본 늘리기
+
+```{r}
+sleep
+```
+
+그룹1 - 약먹기전
+그룹2 - 약먹은후
+extra - 체질. 잠양을 늘었는지 어쩐지.
+```{r}
+tt2 <- t.test(sleep$extra)
+tt2
+```
+
+잠이 늘은건 오케이. 다만, 약을 먹기전 안먹기전의 차이는 모른다.
+
+```{r}
+tt3 <- t.test(x=sleep$extra[1:10], y=sleep$extra[11:20])
+tt3
+```
+독립으로 테스트하는 각각하는것이기때문에 갯수가 동일하지 않아도 관계가 없음.
+귀무가설은 같다. 같지않다라고 두고 해석을 하게 되면, 0.5보다 큰지 아닌지 봐야하는데 귀무가설을 기각할수 없게끔 0.05보다 크다.
+
+집단들끼리 늘어나게 되면 각각 독립인 요인이고 동일한 환경에서 순수한 환경에서만 되게끔 대상이 되어야함. 그것이 바로 독립 t-test임.
+사전 흩어진 것들도 사전에 검정을 좀 해야함.
+
+빠진 부분을 여기서 보강을 하게 된다.
+
+먼저 등분산검정을 해보자. (분산이 다른건 이분산이라고 함)
+
+```{r}
+g1 <- sleep$extra[1:10]
+g2 <- sleep$extra[11:20]
+
+var.test(g1, g2)
+```
+
+분산의 흩어진 정도가 같다는건, 분산의 비로? 같으면 1이됨. 분산의 비로 비교하는게 var.test()함수에서 제공하는 기능임.
+F값은 왜 등장? T, Z같은걸 따른건 저렇게 됨. Z제곱은 X제곱..?
+
+z제곱들이 카이스퀘어 분포를 따르고 있다. 그럼 x의 제곱은 어디에 들어가있냐. 각각의 값들이 표본인경우 x제곱인 경우 평균을 빼주고
+n-1을 나눠주게 됨. 제곱이 들어가있다. 제곱이 들어가있으면 보통 카이스퀘어가 나옴. 카이스퀘어 비, 즉 카이스퀘어 분의 카이스퀘어는 f분포를 띄고있다.
+
+분산의 비는 카이스퀘어비고 F분포가 그렇다. 분산의 비로 된게 F통계량임. 분산의 비로 구해놓은게 F값이다. F값이 1과 유사한지 아니면 먼지 봐야함.
+
+위의 테스트를 통해서는 분산이 같다고 결정낼수있음.
+
+```{r}
+tt3 <- t.test(g1, g2, var.equal = T)
+tt3
+```
+
+표준오차 나눠주는게 다름. 그걸 세세하게 반영해서 분석을 해줘야함.
+분산을 반영했으면, 같은 환자 먹기전 먹기후 이렇게? 
+기본값을 다 제거하고 순수 차이값만 두겠다는건 이변수를 사용하겠다는거임.
+
+x-y 먼저하고 개인 차이만 두겠다. x-y = d 해서 d의 평균값을 구하고, 하나의 변수를 봄. 이렇게 보고 D에 대한 표준편차 구할수 있다.
+D-D다시 / s / 루트엔
+이번에는 개인차가 발생하는 데이터들을 가지고 비교분석할경우에는 오차 막기위해 자기가 가지고있는 순수 오차, 변동량만을 산출해서 이값만을 가지고 분석하는 기법을 적용하게 됨. 쌍으로 비교한다고 해서 paired라고 부른다. 
+
+```{r}
+tt4 <- t.test(g1, g2, var.equal = T, paired = T)
+tt4
+```
+
+실제 정답은 위와같이 됨. 즉, 약을 먹으면 효과가 있다고 결론을 낼수 있음. 
+
+
+# 다른 예제로 연습
+
+남녀 심박수 관련 거시기.
+
+```{r}
+View(survey)
+summary(survey)
+```
+
+summary()함수로 NA가 얼마나 있는지 확인할수 있다.
+
+NA를 제외하고 계산하려면 다음과 같이 가능하다.
+
+```{r}
+mean(survey$Pulse, na.rm = T)
+```
+
+```{r}
+na.omit(na.omit(survey$Pulse))
+```
+
+그룹별로 처리하기 위한, 평균값 구하기
+```{r}
+tapply(survey$Pulse, survey$Sex, FUN=mean)
+```
+mean안에 na.rm이 있었으니 적용해보자
+
+```{r}
+ta1 <- tapply(survey$Pulse, survey$Sex, FUN=mean, na.rm=T)
+ta1
+```
+이번에는 na를 골라내보자
+
+```{r}
+survey1 = survey
+survey1$Pulse = ifelse(is.na(survey$Pulse), ifelse(survey$Sex == "Female", ta1[1], ta1[2] ), survey$Pulse )
+View(survey1)
+var.test(survey1[survey1$Sex == 'Female', 6],survey1[survey1$Sex == 'Male', 6])
+```
+
+p-value값은 기본이 유의수준이 5프로인데, 대립가설이 equal 1인지 아닌지 비교를 하고있음.
+
+이제 t test를 통해 평균을 구해보자
+
+```{r}
+t.test(survey1[survey1$Sex == 'Female', 6],survey1[survey1$Sex == 'Male', 6], var.equal = T, paired = F)
+```
+
+paired를 써야하는 상황인가? 이건 남녀간에 확실한 차이가 있기때문에 이런사항인 경우는 paired를 하지 않는다.
+분석하고자 하는 목적에 따라, 무조건 가설을 기각하는게 좋은게 아니다. 
+
+
+# 집값을 한번 살펴보자
+
+```{r}
+View(Boston)
+```
+
+chas의 변수의 경우 0이면 없는경우, 1이면 있는경우임, 집값은 medv?
+
+```{r}
+table(Boston$chas)
+```
+
+```{r}
+g1 <- Boston[Boston$chas == 0, 14]
+g2 <- Boston[Boston$chas == 1, 14]
+var.test(g1, g2)
+```
+
+집단간의 흩어진 정도가 다르다! 이값들이 반영이 되게 해야함.
+
+```{r}
+t.test(g1, g2, var.equal = F, paired = F)
+```
+지금 한건 한개나 두개밖에 못함. 하지만, 지금처럼 집단의 수가 세개 이상될때 분산분석을 이용해야함. 평균은 같습니다라는 건 동일하게 들어가는데,
+집단이 세개이상일때 가설은 평균에 대한 비교지만은 분산의 기법을 이용함?
+집단내에 흩어진정보와 집단간 흩어진정보. 좀더 이질적인 정보를 ? 집단간의 유사도와 다른것들을 찾아보겠다는거임.
+그때 사용하는게 집단세개인경우 이기법에서 확장에서 써보자. ANOVA
+
+```{r}
+View(survey)
+survey2 = na.omit(survey)
+m1 = aov(Pulse ~ Exer, data = survey2)
+anova(m1)
+summary(m1)
+
+```
+
+F통계량이 분산의 비로 되어있으니, 4.5가 되어있음. 운동량, Residual은 집단간의 차이값을 표현한거임.
+모든 집단마다 평균이 같다 <- 귀무가설, 대립가설은 그냥 하나라도 다르면 다름. 집단간의 차이가 존재한다는거임.
+
+두개씩두깨씩 비교하는 방식이 또 있음 , Tukey임!
+
+```{r}
+TukeyHSD(m1, 'Exer')
+```
+
+p adj를 보면 나름의 p-value임. Some-Freq 간의 유의한 차이만 보이고 있다.
+
+
+
+
+
+
+
+
